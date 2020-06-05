@@ -11,7 +11,39 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\3rdparty\glad\src\glad.c" />
     <ClCompile Include="..\sources\unvrtool.cpp" />
+    <ClCompile Include="..\sources\util.cpp" />
+    <ClCompile Include="..\sources\vrimageformat.cpp" />
+    <ClCompile Include="..\sources\vrrecorder.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\sources\blockingqueue.hpp" />
+    <ClInclude Include="..\sources\camera.hpp" />
+    <ClInclude Include="..\sources\cameratracker.hpp" />
+    <ClInclude Include="..\sources\camparams.hpp" />
+    <ClInclude Include="..\sources\config.hpp" />
+    <ClInclude Include="..\sources\controllerbase.hpp" />
+    <ClInclude Include="..\sources\domainspacetransform.hpp" />
+    <ClInclude Include="..\sources\gl_base.hpp" />
+    <ClInclude Include="..\sources\gl_rendertarget.hpp" />
+    <ClInclude Include="..\sources\script.hpp" />
+    <ClInclude Include="..\sources\shader.hpp" />
+    <ClInclude Include="..\sources\simpleconfig.hpp" />
+    <ClInclude Include="..\sources\snapshots.hpp" />
+    <ClInclude Include="..\sources\spheregenerator.hpp" />
+    <ClInclude Include="..\sources\util_cv.hpp" />
+    <ClInclude Include="..\sources\vectorwindow.hpp" />
+    <ClInclude Include="..\sources\videoframe.hpp" />
+    <ClInclude Include="..\sources\videoinput.hpp" />
+    <ClInclude Include="..\sources\videooutput.hpp" />
+    <ClInclude Include="..\sources\vrimageformat.hpp" />
+    <ClInclude Include="..\sources\vrrecorder.hpp" />
+    <ClInclude Include="..\sources\crossfadecontroller.hpp" />
+    <ClInclude Include="..\sources\_headers_std.hpp" />
+    <ClInclude Include="..\sources\_headers_std_cv.hpp" />
+    <ClInclude Include="..\sources\_headers_std_cv_ogl.hpp" />
+    <ClInclude Include="..\sources\util.hpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
@@ -65,10 +97,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>..\3rdparty\opencv\build\include;..\3rdparty\glad\include;..\3rdparty\glfw\include\;..\3rdparty\glm\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>..\3rdparty\opencv\build\x64\vc15\lib\opencv_world430d.lib;..\3rdparty\glfw\lib-vc2019\glfw3.lib;setargv.obj;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -82,12 +117,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>..\3rdparty\opencv\build\include;..\3rdparty\glad\include;..\3rdparty\glfw\include\;..\3rdparty\glm\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>..\3rdparty\opencv\build\x64\vc15\lib\opencv_world430.lib;..\3rdparty\glfw\lib-vc2019\glfw3.lib;setargv.obj;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
