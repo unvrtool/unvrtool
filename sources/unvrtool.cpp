@@ -117,6 +117,8 @@ int main(int argc, char** argv)
 	int waitif = 0;
 	const char* pendingVideo = nullptr;
 
+	VrImageFormat vr;
+
 	for (int i = 1; i < argc+1; i++)
 	{
 		std::string opt;
@@ -201,20 +203,12 @@ int main(int argc, char** argv)
 
 
 		//-if | -inputformat <format>  Specify video format or auto (default). Ex: lr:180:fisheye or tb:360:equirectangular
-
+		if (opt == "-if" || opt == "-inputformat")
+			H(vr = VrImageFormat::Parse(argv[++i]));
 
 		// unvrtool -writeconfig <config-file> - write current config to <config-file>
 		if (opt == "-writeconfig")
 			H(c.Write(argv[++i]));
-
-		//for (int i = 0; i < argc;)
-		//{
-		//	std::string opt(argv[++i]);
-		//	if (opt == "/c") H(bool ok = c.ReadFile(argv[++i]); std::cout << (ok ? "" : "Unable to ") << " Read " << argv[i - 1]);
-		//	if (opt[0] == '/') H(std::cerr << "Unknown option " << opt << std::endl);
-
-		//}
-
 
 		//<file> or -i <file>          Video to open
 		if (opt == "--process" || opt == "-i" || opt[0] != '-')
@@ -226,7 +220,7 @@ int main(int argc, char** argv)
 				{
 					VrRecorder v(c);
 					v.videopath = std::string(pendingVideo);
-					s = v.Run();
+					s = v.Run(vr);
 				}
 				else
 				{

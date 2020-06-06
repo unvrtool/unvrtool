@@ -45,7 +45,7 @@ MaxYaw = 80
 CrossFadeSecs = 4.0
 
 #How many additional times autodetect needs to verify
-AutodetectConfirmations = 0
+AutodetectConfirmations = 1
 
 # Path to ffmpeg
 ffmpegPath = ffmpeg.exe

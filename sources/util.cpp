@@ -43,6 +43,21 @@ namespace util
 	{
 #if __win32__
 		auto abspath = std::filesystem::absolute(app);
+		if (!std::filesystem::exists(abspath))
+		{
+			std::string p = GetAppFolderPath() + app;
+			auto abspath2 = std::filesystem::absolute(p);
+			if (std::filesystem::exists(abspath2))
+				abspath = abspath2;
+			else
+			{
+				std::cout << "Unable to find\n" << abspath.string() << "\nor\n" << abspath2.string() << "\n trying plain " << app;
+				auto abspath = std::filesystem::path(app);
+			}
+		}
+
+
+
 		auto wapp = abspath.wstring();
 		auto wargs = ConvertToWide(args);
 
@@ -57,6 +72,8 @@ namespace util
 		if (!CreateProcess(wapp.c_str(), wargs.data(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
 		{
 			cout << "CreateProcess failed: " << GetLastError() << std::endl;
+			cout << "Application: " << abspath.string() << std::endl;
+
 			return false;
 		}
 

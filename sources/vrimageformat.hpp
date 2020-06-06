@@ -119,4 +119,42 @@ public:
 		default: return "Invalid enum";
 		}
 	}
+
+	// lr:180:fisheye or tb:360:equirectangular
+	static VrImageFormat Parse(std::string s)
+	{
+		for (auto& c : s)
+			if (c >= 'A' && c <= 'Z')
+				c = c - ('A' - 'a');
+
+		VrImageFormat v;
+		int f1 = s.find(":");
+		if (f1 < 0) throw std::exception("Invalid VrImageFormat layout");
+
+		int f2 = s.find(":", f1 + 1);
+		if (f2 < 0) throw std::exception("Invalid VrImageFormat layout");
+
+		auto k = s.substr(0, f1);
+		if (k == "lr")
+			v.SetLeftRight();
+		else if (k == "tb")
+			v.SetTopBottom();
+		else if (k == "mono")
+			v.SetMono();
+		else throw std::exception("Unknown layout");
+
+		k = s.substr(f1+1, f2-f1-1);
+		if (k == "180")
+			v.Set180();
+		else if (k == "360")
+			v.Set360();
+		else throw std::exception("Unknown FOV");
+
+		k = s.substr(f2+1);
+		if (k == "er" || k == "equirectangular")
+			v.GeomType = Type::Equirectangular;
+		else throw std::exception("Unknown projection");
+
+		return v;
+	}
 };

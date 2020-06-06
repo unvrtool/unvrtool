@@ -12,7 +12,7 @@
 bool 
 VrImageFormat::CheckStereo(cv::Mat img1, cv::Mat img2, bool horizontal)
 {
-	const int MedianYMatchErrorThreshold = 3;
+	const int MedianYMatchErrorThreshold = 7;
 	const int MinGoodMatchesThreshold = 30;
 
 	const float nn_match_ratio = 0.8f;   // Nearest neighbor matching ratio
@@ -131,7 +131,7 @@ std::vector<cv::Rect> CheckSpherical(cv::Mat imageOrg)
 	std::vector<cv::Rect> l;
 	int w = imageOrg.cols;
 	int h = imageOrg.rows;
-	cv::Mat im(h+2*pad, h+2*pad, CV_8UC1);
+	cv::Mat im(h+2*pad, w+2*pad, CV_8UC1);
 	im = 0;
 	imageOrg.copyTo(im(cv::Rect(pad, pad, w, h)));
 
@@ -271,7 +271,21 @@ VrImageFormat::Detect(int confirmations, std::function<cv::Mat(int, int)> getFra
 			else if ((s.width == 1920 || s.width == 1920 / 2) && (s.height == 1080 || s.height == 1080 / 2))
 				SetStereoscopic();
 			else
-				std::cerr << "Strange aspect ratio " << s.width << ":" << s.height << std::endl;
+			{
+				float r = s.width / (float)s.height;
+				if (r < 1) r = 1 / r;
+				if (r < 1.25f)
+					Set180();
+				else
+				{
+					r = 0.5f * s.width / (float)s.height;
+					if (r < 1) r = 1 / r;
+					if (r < 1.25f)
+						Set360();
+					else
+						std::cerr << "Strange aspect ratio " << s.width << ":" << s.height << std::endl;
+				}
+			}
 		}
 	}
 	else
