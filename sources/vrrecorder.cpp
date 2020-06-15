@@ -123,11 +123,8 @@ VrRecorder::StartNormalMode()
 	scriptmode = false;
 	if (c.save)
 	{
-		//std::ostringstream os;
-		//os << videopath << ".unvr.vid.mp4";
-		//std::string opath(os.str());
 		std::string opath = videopath + ".unvr.vid.mp4";
-		vidOut->Start(c, opath, vidIn->fps, cv::Size(rt.renderWidth, rt.renderHeight));
+		vidOut->Start(c, opath, vidIn->fps, cv::Size(recWidth, recHeight));
 	}
 }
 
@@ -305,7 +302,8 @@ VrRecorder::Run(VrImageFormat vrFormat)
 			auto t2 = std::chrono::high_resolution_clock::now();
 			auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
 			t1 = t2;
-			std::cout << (duration / cntMod * 0.000001f) << "                 " << (1000000.0f * cntMod / duration) << " fps " << std::endl;
+			TimeCodeHMS tt(vidIn->frameCount / vidIn->fps);
+			std::cout << curTimeCode.GetHms().ToString() << " / " << tt.ToString() << "   " << (1000000.0f * cntMod / duration) << " fps       \r";
 		}
 
 		processInput(window);
@@ -479,6 +477,10 @@ VrRecorder::processInput(GLFWwindow* window)
 		if (frame != curTimeCode.FrameNo)
 		{
 			vidIn->SetNextFrame((int)frame);
+			TimeCodeHMS ct(frame / vidIn->fps);
+			TimeCodeHMS tt(vidIn->frameCount / vidIn->fps);
+			std::cout << ct.ToString() << " / " << tt.ToString() << "                                              \r";
+
 		}
 	}
 #undef ONKEY

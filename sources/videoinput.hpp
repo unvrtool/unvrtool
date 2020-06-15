@@ -27,6 +27,8 @@ public:
 	BlockingQueue<VideoFrame*> frame_capt;
 	BlockingQueue<VideoFrame*> frame_free;
 	std::thread* captThread = nullptr;
+	std::string path;
+
 
 	VideoInput()
 	{
@@ -51,6 +53,34 @@ public:
 		return capRunning;
 	}
 
+	bool _DoOpen()
+	{
+		cap.setExceptionMode(true);
+		try
+		{
+			cap.open(path);
+		}
+		catch (...)
+		{
+			std::cerr << what();
+		}
+		return cap.isOpened();
+	}
+
+	void _DoClose()
+	{
+		try
+		{
+			if (cap.isOpened())
+				cap.release();
+		}
+		catch(...) 
+		{
+			std::cerr << "_DoClose: " << what();
+		}
+	}
+
+
 	void Close()
 	{
 		if (captThread != nullptr)
@@ -64,22 +94,13 @@ public:
 				captThread->detach();
 			}
 		}
-		if (cap.isOpened())
-			cap.release();
+		_DoClose();
 	}
 
 	bool Open(const std::string& videopath)
 	{
-		cap.setExceptionMode(true);
-		try
-		{
-			cap.open(videopath);
-		}
-		catch (...)
-		{
-			std::cerr << what();
-		}
-		if (!cap.isOpened()) {
+		path = std::string(videopath);
+		if (!_DoOpen()) {
 			std::cout << "Error opening video stream or file" << std::endl;
 			return false;
 		}
@@ -91,11 +112,17 @@ public:
 
 	void Start()
 	{
+		_DoClose();
+
 		captThread = new std::thread([&]() {
 			try
 			{
-				cap.set(cv::CAP_PROP_POS_FRAMES, 0);
-				cap.grab();
+				if (!_DoOpen())
+					capRun = false;
+
+				setNextFrame = -1;
+				if (pause || frameSpeed < 1)
+					cap.grab(); // Started in pausemode, so no frames grabbed automatically
 
 				while (capRun)
 				{

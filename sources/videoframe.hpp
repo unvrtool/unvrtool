@@ -67,7 +67,7 @@ struct TimeCode
 		FrameNo = frameNo;
 	}
 
-	TimeCodeHMS GetHms() { return TimeCodeHMS(FrameNo * Fps); }
+	TimeCodeHMS GetHms() { return TimeCodeHMS(FrameNo / Fps); }
 };
 
 struct VideoFrame : TimeCode

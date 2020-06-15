@@ -12,7 +12,7 @@
 bool 
 VrImageFormat::CheckStereo(cv::Mat img1, cv::Mat img2, bool horizontal)
 {
-	const int MedianYMatchErrorThreshold = 7;
+	const int MedianYMatchErrorThreshold = 20;
 	const int MinGoodMatchesThreshold = 30;
 
 	const float nn_match_ratio = 0.8f;   // Nearest neighbor matching ratio
@@ -21,12 +21,12 @@ VrImageFormat::CheckStereo(cv::Mat img1, cv::Mat img2, bool horizontal)
 	cv::Mat desc1, desc2;
 	cv::Ptr<cv::AKAZE> akaze = cv::AKAZE::create();
 	akaze->detectAndCompute(img1, cv::noArray(), kpts1, desc1);
-	if (kpts1.size() < MinGoodMatchesThreshold * 3)
+	if (kpts1.size() < MinGoodMatchesThreshold * 10)
 	{
 		akaze.release();
 		akaze = cv::AKAZE::create(cv::AKAZE::DESCRIPTOR_MLDB, 0, 3, 0.0001f);
 		akaze->detectAndCompute(img1, cv::noArray(), kpts1, desc1);
-		if (kpts1.size() < MinGoodMatchesThreshold * 3)
+		if (kpts1.size() < MinGoodMatchesThreshold * 7)
 		{
 			akaze.release();
 			akaze = cv::AKAZE::create(cv::AKAZE::DESCRIPTOR_MLDB, 0, 3, 0.00001f);
@@ -169,6 +169,12 @@ std::vector<cv::Rect> CheckSpherical(cv::Mat imageOrg)
 
 		// In case of clipped ellipse the found size will be a litte too small, but should be reasonably ok
 		cv::RotatedRect box = fitEllipse(pointsf);
+		auto br = box.boundingRect();
+		auto bwr = br.width / (float)im.cols;
+		auto bhr = br.height / (float)im.rows;
+		if (bwr > 1.1f || bhr > 1.1f || bwr < 0.6f || bhr < 0.6f)
+			continue;
+
 		float medErr = MedianDevFromEllipse(box, contour);
 		if (medErr > 0.03) // >50% points have more than 3% deviation from found ellipse?
 			continue;
@@ -195,7 +201,7 @@ std::vector<cv::Rect> CheckSpherical(cv::Mat imageOrg)
 		l.push_back(rr);
 		cv::RotatedRect box3(rr.tl(), rr.tl() + cv::Point2i(rr.width, 0), rr.br());
 
-		cv::ellipse(rgbIm, box3, cv::Scalar(0, 0, 255), 1, 8);
+		//cv::ellipse(rgbIm, box3, cv::Scalar(0, 0, 255), 1, 8);
 		//cv::imshow("Contour", rgbIm);
 		//cv::waitKey();
 	}
