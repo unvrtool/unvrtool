@@ -63,8 +63,8 @@ OutExt = .mp4
 
 ############# Tracking #############
 
-#TrackAverageFrames how many frames to average tracking over. Too few and camera gets jumpy, too many and it will be slow to respond to change
-TrackAverageFrames = 100
+#TrackAverageSecs how many frames to average tracking over. Too few and camera gets jumpy, too many and it will be slow to respond to change
+TrackAverageSecs = 4.0
 
 #CenterAmp: Usually 0.5 - 2. If > 1 will weight motion in center more, < 1 will weight motion in the edges more
 TrackCenterAmp = 1.0

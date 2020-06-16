@@ -80,25 +80,24 @@ VrImageFormat::CheckStereo(cv::Mat img1, cv::Mat img2, bool horizontal)
 }
 
 void
-VrImageFormat::Detect(int confirmations, cv::VideoCapture cap)
+VrImageFormat::Detect(int confirmations, VideoInput* cap)
 {
-	//cv::VideoCapture& cap = vidIn->cap;
-	auto fps = cap.get(cv::CAP_PROP_FPS);
-	auto fc = cap.get(cv::CAP_PROP_FRAME_COUNT);
+	auto fps = cap->fps;
+	auto fc = cap->frameCount;
 
 	Detect(confirmations, [&](int frameNo, int frameTot)
 		{
 			auto cf = (int)(fc * frameNo / frameTot);
-			auto ms = 1000.0 * cf / fps;
-			cap.set(cv::CAP_PROP_POS_MSEC, ms);
+			cap->SetNextFrame(cf);
 			for (int s = 0; s < 10; s++)
-				cap.grab();
-			cv::Mat mc;
-			cap.retrieve(mc);
+				cap->SkipFrame();
+			VideoFrame* f = cap->GetFrame();
+			cv::Mat mc = f->Frame.clone();
+			cap->ReleaseFrame(f);
 			return mc;
 		});
 
-	cap.set(cv::CAP_PROP_POS_MSEC, 0); // Rewind
+	cap->SetNextFrame(0); // Rewind
 }
 
 float MedianDevFromEllipse(cv::RotatedRect& box, std::vector<cv::Point>& contour)

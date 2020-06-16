@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "videoinput.hpp"
+
 #include <opencv2/opencv.hpp>
 
 class VrImageLayout
@@ -71,7 +73,7 @@ class VrImageFormat : public VrImageLayout, public VrImageGeometryMapping
 
 public:
 	void Detect(int level, std::function<cv::Mat(int, int)> getFrame);
-	void Detect(int level, cv::VideoCapture cap);
+	void Detect(int level, VideoInput* cap);
 
 	bool IsValid() { return IsLayoutSet() && IsGeomMappingSet(); }
 

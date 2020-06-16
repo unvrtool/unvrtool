@@ -27,7 +27,7 @@ class CameraTracker
 	float fovX, fovY;
 	float N(float b, float l) { return l < 0 ? b / 2 + l : l; }
 	VectorWindow<cv::Point2f> targetHistory;
-	int targetHistoryLimit = 25; // 0.5 secs?
+	int targetHistoryLimit = 100; 
 
 	float Limit(float limit, float val)
 	{
@@ -64,12 +64,13 @@ public:
 
 	void TargetHistoryReset(int size) { targetHistoryLimit = size;  targetHistory.Reset(targetHistoryLimit); }
 
-	void Init(Config& c)
+	void Init(Config& c, float fps)
 	{
 		fovX = c.vrFormat.FovX;
 		fovY = c.vrFormat.FovY;
 
-		targetHistoryLimit = c.GetInt("TrackAverageFrames", 100);
+		float targetHistoryLimitSecs = c.GetFloat("TrackAverageSecs", 4.0f);
+		targetHistoryLimit = (int)(targetHistoryLimitSecs * fps + 0.5f);
 		targetHistory.Reset(targetHistoryLimit);
 
 		centerAmp = c.GetFloat("TrackCenterAmp", 1);

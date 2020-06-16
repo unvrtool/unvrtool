@@ -191,7 +191,7 @@ VrRecorder::Run(VrImageFormat vrFormat)
 	if (!vrFormat.IsValid())
 	{
 		int confirmations = c.GetInt("AutodetectConfirmations", 1);
-		vrFormat.Detect(confirmations, vidIn->cap);
+		vrFormat.Detect(confirmations, vidIn);
 		std::cout << "Detected " << vrFormat.GetFovString() << " deg " << vrFormat.GetLayOutString() << " " << vrFormat.GetGeometryString() << std::endl;
 		if (!vrFormat.IsValid())
 		{
@@ -207,11 +207,11 @@ VrRecorder::Run(VrImageFormat vrFormat)
 	c.vrFormat = vrFormat;
 	scrSize = cv::Size(recWidth, recHeight);
 	vidIn->pause = true;
-	vidIn->Start();
+	vidIn->SetNextFrame(0);
 
 	cam.Init(c, vidIn->fps);
 	cam.UpdateCps();
-	camTracker.Init(c);
+	camTracker.Init(c, vidIn->fps);
 	snapshots->snapshotsPath = videopath;
 
 	if (c.scriptcam)
@@ -487,7 +487,14 @@ VrRecorder::processInput(GLFWwindow* window)
 }
 
 void 
-VrRecorder::framebuffer_size_callback(GLFWwindow* window, int width, int height) { scrSize = cv::Size(width, height); rtUv.SetSize(width, height); }
+VrRecorder::framebuffer_size_callback(GLFWwindow* window, int width, int height) 
+{
+	if (width > 0 && height > 0)
+	{
+		scrSize = cv::Size(width, height); 
+		rtUv.SetSize(width, height);
+	}
+}
 
 void
 VrRecorder::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) { lastMods = mods; }
