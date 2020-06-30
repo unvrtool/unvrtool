@@ -44,6 +44,10 @@
     <ClInclude Include="..\sources\_headers_std_cv.hpp" />
     <ClInclude Include="..\sources\_headers_std_cv_ogl.hpp" />
     <ClInclude Include="..\sources\util.hpp" />
+    <ClInclude Include="resource.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="unvrtool.rc" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

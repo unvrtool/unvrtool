@@ -38,3 +38,6 @@ build/Debug
 build/Release
 build/.vs
 /build/unvrtool.config
+/Unvrtool 1.0.0
+/Unvrtool 1.0.0.zip
+/Releases
