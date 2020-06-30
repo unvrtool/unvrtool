@@ -7,6 +7,7 @@
 #include <opencv2/features2d.hpp>
 
 #include "util.hpp"
+#include "util_cv.hpp"
 #include "vrimageformat.hpp"
 
 bool 
@@ -121,7 +122,7 @@ float MedianDevFromEllipse(cv::RotatedRect& box, std::vector<cv::Point>& contour
 	return merr;
 }
 
-std::vector<cv::Rect> CheckSpherical(cv::Mat imageOrg)
+std::vector<cv::Rect> CheckFisheye(cv::Mat imageOrg)
 {
 	cv::Mat rgbIm;
 	cv::cvtColor(imageOrg, rgbIm, cv::COLOR_GRAY2BGR);
@@ -138,11 +139,9 @@ std::vector<cv::Rect> CheckSpherical(cv::Mat imageOrg)
 	//cv::medianBlur(im, im, 5);
 
 	im *= 50;
-	//cv::imshow("Spherical", im);
-	//cv::waitKey();
-
+ 
 	size_t maxR = MIN(imageOrg.cols, imageOrg.rows)/2;
-	size_t minR = 9 * maxR / 10;
+	size_t minR = 85 * maxR / 100;
 	size_t minCircleArea = 3.14f * minR * minR;
 	size_t expCircleArea = 3.14f * maxR * maxR;
 
@@ -168,38 +167,24 @@ std::vector<cv::Rect> CheckSpherical(cv::Mat imageOrg)
 
 		// In case of clipped ellipse the found size will be a litte too small, but should be reasonably ok
 		cv::RotatedRect box = fitEllipse(pointsf);
-		auto br = box.boundingRect();
+		auto br = ucv::fitEllipseToRect(box);
 		auto bwr = br.width / (float)im.cols;
 		auto bhr = br.height / (float)im.rows;
-		if (bwr > 1.1f || bhr > 1.1f || bwr < 0.6f || bhr < 0.6f)
+		if (bwr > 1.1f || bhr > 1.1f || bwr < 0.4f || bhr < 0.6f)
 			continue;
 
 		float medErr = MedianDevFromEllipse(box, contour);
 		if (medErr > 0.03) // >50% points have more than 3% deviation from found ellipse?
 			continue;
 
-		auto c = box.center - cv::Point2f(pad, pad);
-		cv::RotatedRect box2(c, box.size, 0);
+		auto pad2 = cv::Point2i(pad, pad);
+		cv::Rect rr= cv::Rect(br.tl() - pad2, br.br() - pad2);
 
-		float w = box2.size.width;
-		float  h = box2.size.height;
-		float x0 = c.x - w / 2;
-		float x1 = c.x + w / 2;
-		float y0 = c.y - h / 2;
-		float y1 = c.y + h / 2;
+		std::cout << "X " << rr.x << " - " << rr.br().x << " = " << rr.width << std::endl;
+		std::cout << "Y " << rr.y << " - " << rr.br().y << " = " << rr.height << std::endl;
 
-		int ix0 = round(x0);
-		int ix1 = round(x1);
-		int iy0 = round(y0);
-		int iy1 = round(y1);
-
-		std::cout << "X " << x0 << " - " << x1 << " = " << (ix1 - ix0) << std::endl;
-		std::cout << "Y " << y0 << " - " << y1 << " = " << (iy1 - iy0) << std::endl;
-
-		cv::Rect rr(ix0, iy0, ix1 - ix0, iy1 - iy0);
 		l.push_back(rr);
-		cv::RotatedRect box3(rr.tl(), rr.tl() + cv::Point2i(rr.width, 0), rr.br());
-
+		//cv::RotatedRect box3(rr.tl(), rr.tl() + cv::Point2i(rr.width, 0), rr.br());
 		//cv::ellipse(rgbIm, box3, cv::Scalar(0, 0, 255), 1, 8);
 		//cv::imshow("Contour", rgbIm);
 		//cv::waitKey();
@@ -212,23 +197,32 @@ VrImageFormat::Detect(int confirmations, std::function<cv::Mat(int, int)> getFra
 {
 	cv::Mat mc, mf, m;
 	int cLR = 0, cTB = 0, cM = 0, cU = 0, cT = 0;
-	std::vector<std::pair<cv::Rect, cv::Rect>> sphereList;
+	std::vector<std::pair<cv::Rect, cv::Rect>> fisheyeList;
 
 	for (int p = 1; p < 10; p += 1)
 	{
 		mc = getFrame(p, 10);
+		lastFrameAnalyzed = mc;
 
 		cv::cvtColor(mc, mf, cv::COLOR_BGR2GRAY);
 		int smin = MIN(mf.cols, mf.rows);
 		float downscale = 800.0f / smin;
 		cv::resize(mf, m, cv::Size(), downscale, downscale, cv::INTER_AREA);
 
-		auto sl1 = CheckSpherical(mf(cv::Rect(0, 0, mf.cols / 2, mf.rows)));
+		auto sl1 = CheckFisheye(mf(cv::Rect(0, 0, mf.cols / 2, mf.rows)));
 		if (sl1.size() == 1)
 		{
-			auto sl2 = CheckSpherical(mf(cv::Rect(mf.cols / 2, 0, mf.cols / 2, mf.rows)));
+			auto sl2 = CheckFisheye(mf(cv::Rect(mf.cols / 2, 0, mf.cols / 2, mf.rows)));
 			if (sl2.size() == 1)
-				sphereList.emplace_back(sl1[0], sl2[0]);
+				fisheyeList.emplace_back(sl1[0], sl2[0]);
+		}
+		if (GeomType == Type::Fisheye) // already specified, only need to find fisheye params
+		{
+			if (fisheyeList.size() == 0) continue;
+			cv::Size s = GetSubImgSize(mf.size());
+			fisheyeEllipseRects.push_back(ToTextureCoords(s, fisheyeList[0].first));
+			fisheyeEllipseRects.push_back(ToTextureCoords(s, fisheyeList[0].second));
+			return;
 		}
 
 		int w = m.cols / 8;
@@ -239,6 +233,7 @@ VrImageFormat::Detect(int confirmations, std::function<cv::Mat(int, int)> getFra
 		cv::Mat y1 = m(cv::Rect(w * 2, h * 5, w * 4, h * 2)).clone();
 		bool lr = CheckStereo(x0, x1, true);
 		bool tb = CheckStereo(y0, y1, false);
+
 		cT++;
 		if (!lr && !tb) cM++;
 		if (lr && !tb) cLR++;
@@ -261,11 +256,11 @@ VrImageFormat::Detect(int confirmations, std::function<cv::Mat(int, int)> getFra
 		subImageRects.push_back(GetSubImg(mf.size(), 1));
 		cv::Size s = GetSubImgSize(mf.size());
 
-		if (sphereList.size() > 0)
+		if (fisheyeList.size() > 0)
 		{
-			Set180(VrImageGeometryMapping::Type::Spherical);
-			sphericalEllipseRects.push_back(SphericalTextureAdjust(s, sphereList[0].first));
-			sphericalEllipseRects.push_back(SphericalTextureAdjust(s, sphereList[0].second));
+			Set180(VrImageGeometryMapping::Type::Fisheye);
+			fisheyeEllipseRects.push_back(ToTextureCoords(s, fisheyeList[0].first));
+			fisheyeEllipseRects.push_back(ToTextureCoords(s, fisheyeList[0].second));
 		}
 		else
 		{
@@ -284,8 +279,9 @@ VrImageFormat::Detect(int confirmations, std::function<cv::Mat(int, int)> getFra
 				else
 				{
 					r = 0.5f * s.width / (float)s.height;
-					if (r < 1) r = 1 / r;
-					if (r < 1.25f)
+					if (r > 1) // Must be 360..
+						Set360();
+					else if (1 / r < 1.25f)
 						Set360();
 					else
 						std::cerr << "Strange aspect ratio " << s.width << ":" << s.height << std::endl;
@@ -295,4 +291,73 @@ VrImageFormat::Detect(int confirmations, std::function<cv::Mat(int, int)> getFra
 	}
 	else
 		std::cerr << "Unable to determine layout" << std::endl;
+}
+
+void 
+VrImageFormat::SaveDebugInputImages(const std::string& videopath, cv::Mat* inputFrame, cv::Mat* outputFrame)
+{
+	std::ostringstream os;
+	std::filesystem::path p(videopath);
+	auto fn = p.filename().string();
+	if (fn[0] == '"')
+		fn = fn.substr(1, fn.size() - 2);
+
+	std::string prefix = "UnvrTool_Debug_";
+	if (numImgsX == 1 && numImgsY == 1) os << "Mono";
+	else if (numImgsX == 2 && numImgsY == 1) os << "LR"; else if (numImgsX == 1 && numImgsY == 2) os << "TB";
+	else os << "Unknown!";
+	os << "_" << FovX << "_";
+
+	os << "_";
+	if (GeomType == Type::Unknown) os << "Unknown!";
+	if (GeomType == Type::Flat) os << "Flat";
+	if (GeomType == Type::Equirectangular) os << "ER";
+	if (GeomType == Type::Fisheye) os << "Fisheye";
+
+	if (inputFrame)
+	{
+		cv::Mat m = DrawDebugInputImage(*inputFrame);
+		cv::imwrite(prefix + os.str() + "__" + fn + "__Input.png", m);
+	}
+
+	if (outputFrame)
+		cv::imwrite(prefix + os.str() + "__" + fn + "__Output.png", *outputFrame);
+}
+
+
+cv::Mat
+VrImageFormat::DrawDebugInputImage(cv::Mat frame)
+{
+	cv::Mat mc = frame.clone();
+
+	if (IsLayoutSet())
+	{
+		if (GeomType == Type::Fisheye)
+		{
+			cv::Size s = GetSubImgSize(frame.size());
+			{
+				auto r = cv::Rect(ToPixelCoords(s, fisheyeEllipseRects[0]));
+				r = cv::Rect(GetSubImg(0).tl() + r.tl(), r.size());
+				cv::RotatedRect rr(r.tl(), r.tl() + cv::Point2i(r.width, 0), r.br());
+				cv::ellipse(mc, rr, cv::Scalar(0, 0, 255), 20);
+			}
+			{
+				auto r = cv::Rect(ToPixelCoords(s, fisheyeEllipseRects[1]));
+				r = cv::Rect(GetSubImg(1).tl() + r.tl(), r.size());
+				cv::RotatedRect rr(r.tl(), r.tl() + cv::Point2i(r.width, 0), r.br());
+				cv::ellipse(mc, rr, cv::Scalar(0, 0, 255), 20);
+			}
+		}
+		else
+		{
+			auto r = subImageRects[0];
+			cv::rectangle(mc, r, cv::Scalar(0, 0, 255), 20);
+			if (subImageRects.size() > 1)
+			{
+				r = subImageRects[1];
+				cv::rectangle(mc, r, cv::Scalar(0, 0, 255), 20);
+			}
+		}
+		return mc;
+	}
 }

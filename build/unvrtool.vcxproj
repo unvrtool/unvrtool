@@ -31,7 +31,7 @@
     <ClInclude Include="..\sources\shader.hpp" />
     <ClInclude Include="..\sources\simpleconfig.hpp" />
     <ClInclude Include="..\sources\snapshots.hpp" />
-    <ClInclude Include="..\sources\spheregenerator.hpp" />
+    <ClInclude Include="..\sources\geometry.hpp" />
     <ClInclude Include="..\sources\util_cv.hpp" />
     <ClInclude Include="..\sources\vectorwindow.hpp" />
     <ClInclude Include="..\sources\videoframe.hpp" />

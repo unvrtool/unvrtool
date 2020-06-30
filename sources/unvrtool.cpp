@@ -30,7 +30,7 @@ unvrtool [options] <path to VR video file1> [<path to VR video file2> [...]]
 
 Options:
 <file> or -i <file>          Video to open
--if | -inputformat <format>  Specify video format or auto (default). Ex: lr:180:fisheye or tb:360:equirectangular
+-if | -inputformat <format>  Specify video format, ex tb:360:equirectangular, lr:180:fisheye, lr::flat
 -v  | -view                  View video
 -s  | -save                  Save video(s), without showing anything unless -g specified
 -sc | -script				 Allow user to setup camera shots first, esc to stop.
@@ -40,6 +40,8 @@ Options:
 -sak| -saveaudiokeep         Don't delete no-audio video after audio save
 -t  | -to <path>             Save video to path, implies -s
 -tf | -tofolder <path>       Save video(s) to folder, implies -s
+-ts | -timestart <time>		 Start video at <time>, given as H:MM:SS 
+-te | -timeend <time>		 End video at <time>, given as H:MM:SS 
 -c  | -config <config>	     Load config-file. If no extension is given .config will be added
 -cr | -configreset           Reset all config values
 -cs | -configset <key>=<val>[;...] Set config values on commandline, as an alternative to -c
@@ -132,6 +134,9 @@ int main(int argc, char** argv)
 		if (opt == "--getargsfrom")
 			H(if (util::GetArgsFrom(argv[++i], &argc, &argv)) i = 0;);
 
+		if (opt == "--dbgfmtimg")
+			H(c.saveDebugFormatImage = true);
+
 		//-cr | -configreset           Reset all config values
 		if (opt == "-cr" || opt == "-configreset")
 			H(c = Config(cr));
@@ -139,8 +144,7 @@ int main(int argc, char** argv)
 		//-c  | -config <config>	     Load config-file. If no extension is given .config will be added
 		if (opt == "-c" || opt == "-config")
 			H(bool ok = c.ReadFile(argv[++i], appFolderPath.c_str()); std::cout << (ok ? "" : "Unable to ") << " Read " << argv[i]);
-
-		//-cs | -configset <key>=<val>[;...] Set config values on commandline, as an alternative to -c
+//-cs | -configset <key>=<val>[;...] Set config values on commandline, as an alternative to -c
 		if (opt == "-cs" || opt == "-configset")
 			H(c.ReadString(argv[++i]));
 
@@ -201,6 +205,13 @@ int main(int argc, char** argv)
 		if (opt == "-ss" || opt == "-scriptsave")
 			H(c.savescriptPath = std::string(argv[++i]));
 
+		//-ts | -timestart <time>		 Start video at <time>, given as H:MM:SS 
+		if (opt == "-ts" || opt == "-timestart")
+			H(c.timeStartSec = TimeCodeHMS(argv[++i]).ToSecs());
+
+		//-te | -timeend <time>		 End video at <time>, given as H:MM:SS 
+		if (opt == "-te" || opt == "-timestart")
+			H(c.timeEndSec = TimeCodeHMS(argv[++i]).ToSecs());
 
 		//-if | -inputformat <format>  Specify video format or auto (default). Ex: lr:180:fisheye or tb:360:equirectangular
 		if (opt == "-if" || opt == "-inputformat")
@@ -208,7 +219,21 @@ int main(int argc, char** argv)
 
 		// unvrtool -writeconfig <config-file> - write current config to <config-file>
 		if (opt == "-writeconfig")
-			H(c.Write(argv[++i]));
+		{
+			if (argc == ++i)
+			{
+				auto confPath = appName + ".config";
+				if (std::filesystem::exists(appConfigPath))
+				{
+					std::cout << "Press enter to overwrite " << confPath << " or Ctrl+C to abort" << std::endl;
+					cin.get();
+				}
+				std::cout << "Writing " << confPath << std::endl;
+				H(c.Write(confPath.c_str()));
+			}
+			else
+				H(c.Write(argv[i]));
+		}
 
 		//<file> or -i <file>          Video to open
 		if (opt == "--process" || opt == "-i" || opt[0] != '-')
@@ -221,12 +246,14 @@ int main(int argc, char** argv)
 					VrRecorder v(c);
 					v.videopath = std::string(pendingVideo);
 					s = v.Run(vr);
+					cout << std::endl;
 				}
 				else
 				{
 					s = 1;
 					cout << "Not Found: " << pendingVideo << std::endl;
 				}
+				pendingVideo = nullptr;
 
 				c.outPath = ""; // Reset, if set
 				if (s != 0 && waitif > 0)
@@ -237,9 +264,20 @@ int main(int argc, char** argv)
 				{
 					cout << "Press enter to continue"; cin.get();
 				}
+				cout << std::endl;
 			}
 			if (opt != "--process")
-				pendingVideo = argv[opt == "-i" ? ++i : i];
+				if (opt == "-i")
+					pendingVideo = argv[++i];
+				else
+				{
+					std::string filepath(argv[i]);
+					bool unvrFile = filepath.find(".unvr.") != std::string::npos;
+					if (!unvrFile)
+						pendingVideo = argv[i];
+					else
+						cout << "Ignoring unvr file " << argv[i] << std::endl;
+				}
 		}
 	}
 }

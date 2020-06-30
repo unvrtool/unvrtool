@@ -7,17 +7,81 @@
 #pragma once
 
 #include "_headers_std_cv_ogl.hpp"
+#include "util.hpp"
 
-namespace ucv
+class ucv
 {
-	inline cv::Point2f Conv(glm::vec2 v) { return cv::Point2f(v.x, v.y); }
+public:
+	static cv::Point2f Conv(glm::vec2 v) { return cv::Point2f(v.x, v.y); }
 
-	inline void Ensure(cv::Mat& mat, int rows, int cols, int type)
+	static void Ensure(cv::Mat& mat, int rows, int cols, int type)
 	{
 		if (mat.cols != cols || mat.rows != rows || mat.type() != type)
 			mat = cv::Mat(rows, cols, type);
 	}
-}
+
+	static cv::Rect fitEllipseToRect(cv::RotatedRect box)
+	{
+		double r = util::rad(box.angle);
+		cv::Mat_<double> t(2, 2);
+		cv::Vec2d v;
+
+		t.at<double>(0, 0) = t.at<double>(1, 1) = cos(r);
+		t.at<double>(cv::Point(1, 0)) = -sin(r);
+		t.at<double>(cv::Point(0, 1)) = sin(r);
+
+		MinMax mx, my;
+		for (float deg = 0; deg < 360; deg++)
+		{
+			r = util::rad(deg);
+			double x = 0.5f * box.size.width * cos(r);
+			double y = 0.5f * box.size.height * sin(r);
+			v = cv::Vec2d(x, y);
+			auto d = cv::Mat(t * v);
+			x = d.at<double>(0, 0);
+			y = d.at<double>(1, 0);
+			x += box.center.x;
+			y += box.center.y;
+			mx.Add(x);
+			my.Add(y);
+		}
+		int x0 = (int)(mx.Min + 0.5f);
+		int x1 = (int)(mx.Max + 0.5f);
+		int y0 = (int)(my.Min + 0.5f);
+		int y1 = (int)(my.Max + 0.5f);
+		return cv::Rect(x0, y0, x1 - x0, y1 - y0);
+	}
+
+	static void TestfitEllipseToRect()
+	{
+		for (int i = 0; i < 360; i++)
+		{
+			cv::Mat_<uint8_t> im(1000, 1000);
+			im = (uint8_t)0;
+			cv::RotatedRect rr(cv::Point2f(500, 500), cv::Size(400, 200), i);
+			cv::ellipse(im, rr, cv::Scalar(255), cv::LineTypes::FILLED);
+
+			std::vector<std::vector<cv::Point>> contours;
+			cv::findContours(im, contours, cv::RETR_CCOMP, cv::CHAIN_APPROX_SIMPLE);
+			for (size_t i = 0; i < contours.size(); i++)
+			{
+				auto contour = contours[i];
+				if (contour.size() < 10)
+					continue;
+				cv::Mat pointsf;
+				cv::Mat(contour).convertTo(pointsf, CV_32F);
+				cv::RotatedRect box = fitEllipse(pointsf);
+				cv::Rect r = fitEllipseToRect(box);
+				cv::rectangle(im, r, 200, 1);
+			}
+
+			cv::imshow("e", im);
+			cv::waitKey(100);
+		}
+
+	}
+
+};
 
 struct Marker
 {

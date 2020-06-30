@@ -38,11 +38,12 @@ struct TimeCodeHMS
 
 	TimeCodeHMS(std::string s)
 	{
+		int l = s.length();
 		int h = s[1] == ':' ? 1 : 2;
 		Hours = std::stoi(s.substr(0, h));
 		Minutes = std::stoi(s.substr(h + 1, 2));
-		Secs = std::stoi(s.substr(h + 4, 2));
-		Ms = (float)std::stoi(s.substr(h + 7));
+		Secs = l < h + 5 ? 0.f : std::stoi(s.substr(h + 4, 2));
+		Ms = l < h + 8 ? 0.f : (float)std::stoi(s.substr(h + 7));
 	}
 
 	std::string ToString()

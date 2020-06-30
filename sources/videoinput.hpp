@@ -28,8 +28,10 @@ private:
 public:
 	int frameSpeed = 1;
 	double fps = 0;
+	int width=0, height=0;
 	int frameCount = 0;
 	bool pause = false;
+	int curframeNo;
 
 	VideoInput()
 	{
@@ -42,10 +44,16 @@ public:
 		return (float)(frameSpeed / fps);
 	}
 
+	void SetEndFrame(int frame)
+	{
+		if (frame < frameCount)
+			frameCount = frame;
+	}
+
 	void SetNextFrame(int frame) 
 	{
 		if (frame < 0) frame = 0;
-		if (frame >= frameCount) frame = frameCount - 1;
+		if (frame >= frameCount) frame = frameCount - 2;
 		setNextFrame = frame; 
 	}
 
@@ -105,11 +113,9 @@ public:
 		captThread = new std::thread([&]() {
 			try
 			{
-				std::cout << "Init" << std::endl;
 				setNextFrame = -1;
 				auto vf = frame_free.wait_pop();
 
-				std::cout << "Opening" << std::endl;
 				if (!_DoOpen()) {
 					std::cout << "Error opening video stream or file" << std::endl;
 					capRun = false;
@@ -120,10 +126,11 @@ public:
 				{
 					capRunning = true;
 					fps = cap.get(cv::CAP_PROP_FPS);
+					width = cap.get(cv::CAP_PROP_FRAME_WIDTH);
+					height = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+
 					frameCount = (int)cap.get(cv::CAP_PROP_FRAME_COUNT);
-					std::cout << "Grabbing" << std::endl;
 					cap.grab();
-					std::cout << "Grabbed" << std::endl;
 
 					int frameNo = (int)cap.get(cv::CAP_PROP_POS_FRAMES) - 1; // get returns *next* frame number..
 					vf->SetTimeCode(fps, frameNo);
@@ -149,11 +156,30 @@ public:
 									frame_free.push(vf);
 
 								if (setNextFrame >= frameCount)
-									setNextFrame = frameCount - 1;
-								int frame = setNextFrame;
+									setNextFrame = frameCount - 2;
+								curframeNo = setNextFrame;
 								setNextFrame = -1;
-								cap.set(cv::CAP_PROP_POS_FRAMES, frame);
-								cap.grab();
+								cap.set(cv::CAP_PROP_POS_FRAMES, curframeNo);
+								int errCnt = 0;
+								bool ok = false;
+								while (!ok && errCnt < 5)
+								{
+									try
+									{
+										cap.grab();
+										ok = true;
+									}
+									catch (...)
+									{
+										errCnt++;
+										if (curframeNo > 0 && curframeNo > frameCount - 1000)
+										{
+											int q = 2 * (errCnt * errCnt);
+											curframeNo -= q;
+											cap.set(cv::CAP_PROP_POS_FRAMES, curframeNo);
+										}
+									}
+								}
 							}
 							else
 							{
@@ -161,17 +187,25 @@ public:
 									cap.grab(); // advance frame
 							}
 
-							int frameNo = (int)cap.get(cv::CAP_PROP_POS_FRAMES) - 1; // get returns *next* frame number..
-							cap.retrieve(vf->Frame);
-							if (setNextFrame != -1)
+							curframeNo = (int)cap.get(cv::CAP_PROP_POS_FRAMES) - 1; // get returns *next* frame number..
+							if (curframeNo >= frameCount)
+								vf->SetTimeCode(fps, -1);
+							else
 							{
-								frame_free.push(vf);
-								continue;
+								cap.retrieve(vf->Frame);
+								if (setNextFrame != -1)
+								{
+									frame_free.push(vf);
+									continue;
+								}
+								vf->SetTimeCode(fps, curframeNo);
 							}
-							vf->SetTimeCode(fps, frameNo);
 						}
 						catch (...)
 						{
+							std::cout << "Video Error at frame " << curframeNo << std::endl;
+
+							std::cout << what() << std::endl;
 							vf->SetTimeCode(fps, -1);
 						}
 						frame_capt.push(vf);

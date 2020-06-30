@@ -27,6 +27,9 @@
     <ClCompile Include="..\sources\vrrecorder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\3rdparty\glad\src\glad.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\sources\_headers_std.hpp">
@@ -80,9 +83,6 @@
     <ClInclude Include="..\sources\snapshots.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\sources\spheregenerator.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\sources\util.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -105,6 +105,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\sources\vrrecorder.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\sources\geometry.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

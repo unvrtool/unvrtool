@@ -32,7 +32,7 @@
 #include "util.hpp"
 #include "vrrecorder.hpp"
 
-#include "spheregenerator.hpp"
+#include "geometry.hpp"
 
 
 VrRecorder::VrRecorder(Config& config) : c(config)
@@ -82,11 +82,12 @@ VrRecorder::OpenWindow()
 	return true;
 }
 
-bool trgExitScriptCamMode = false;
-
 void
 VrRecorder::StartScriptMode()
 {
+	vidIn->SetNextFrame(c.timeStartSec * vidIn->fps);
+	vidIn->SetEndFrame(c.timeEndSec * vidIn->fps);
+
 	scriptmode = true;
 	showMarkers = true;
 	pause = true;
@@ -112,7 +113,6 @@ VrRecorder::ExitScriptCamMode()
 		glfwSetInputMode(window, GLFW_CURSOR, captMouse ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 	}
 
-	vidIn->SetNextFrame(0);
 	pause = false;
 	StartNormalMode();
 }
@@ -120,6 +120,8 @@ VrRecorder::ExitScriptCamMode()
 void
 VrRecorder::StartNormalMode()
 {
+	vidIn->SetNextFrame(c.timeStartSec * vidIn->fps);
+	vidIn->SetEndFrame(c.timeEndSec * vidIn->fps);
 	scriptmode = false;
 	if (c.save)
 	{
@@ -151,7 +153,7 @@ VrRecorder::CheckScript(cv::Mat subFrame)
 	bool fbSet = last.HasFov();
 
 	YawPitch yp = ypSet ? last.YP() : camTracker.curTarget;
-	auto tp = ucv::Conv(sphere.CalcTexFromYawPitch(yp));
+	auto tp = ucv::Conv(geom.CalcTexFromYawPitch(yp));
 
 	if (showMarkers)
 	{
@@ -191,10 +193,14 @@ VrRecorder::Run(VrImageFormat vrFormat)
 	if (!vrFormat.IsValid())
 	{
 		int confirmations = c.GetInt("AutodetectConfirmations", 1);
+		//vrFormat.Detect(confirmations, vidIn, videopath.c_str());
 		vrFormat.Detect(confirmations, vidIn);
 		std::cout << "Detected " << vrFormat.GetFovString() << " deg " << vrFormat.GetLayOutString() << " " << vrFormat.GetGeometryString() << std::endl;
 		if (!vrFormat.IsValid())
 		{
+			if (c.saveDebugFormatImage)
+				vrFormat.SaveDebugInputImages(videopath.c_str(), &vrFormat.lastFrameAnalyzed, nullptr);
+
 			if (!vrFormat.IsLayoutSet()) std::cerr << "Unable to determine if video is L/R or U/D, aborting.." << std::endl;
 			if (!vrFormat.IsFovSet()) std::cerr << "Unable to determine Fov" << std::endl;
 			if (!vrFormat.IsGeomTypeSet()) std::cerr << "Unable to determine Geometry" << std::endl;
@@ -202,17 +208,26 @@ VrRecorder::Run(VrImageFormat vrFormat)
 		}
 	}
 	else
+	{
+		vrFormat.CheckSubImgInit(vidIn);
 		std::cout << "Processing as " << vrFormat.GetFovString() << " deg " << vrFormat.GetLayOutString() << " " << vrFormat.GetGeometryString() << std::endl;
+
+	}
 
 	c.vrFormat = vrFormat;
 	scrSize = cv::Size(recWidth, recHeight);
-	vidIn->pause = true;
-	vidIn->SetNextFrame(0);
 
 	cam.Init(c, vidIn->fps);
 	cam.UpdateCps();
 	camTracker.Init(c, vidIn->fps);
 	snapshots->snapshotsPath = videopath;
+
+	if (vrFormat.GeomType == VrImageFormat::Type::Flat)
+	{
+		cam.Set(Cp::Fov, 90, 7);
+		cam.Set(Cp::Bo, 0, 7);
+	}
+
 
 	if (c.scriptcam)
 		StartScriptMode();
@@ -222,10 +237,10 @@ VrRecorder::Run(VrImageFormat vrFormat)
 	if (!OpenWindow())
 		return -1;
 
-	sphere.Set(vrFormat.GeomType, vrFormat.FovX, vrFormat.FovY);
-	if (vrFormat.GeomType == VrImageGeometryMapping::Type::Spherical)
-		sphere.sphericalEllipseRect = vrFormat.sphericalEllipseRects[0];
-	sphere.GlGenerateSphere();
+	geom.Set(vrFormat.GeomType, vrFormat.FovX, vrFormat.FovY);
+	if (vrFormat.GeomType == VrImageGeometryMapping::Type::Fisheye)
+		geom.fisheyeEllipseRect = vrFormat.fisheyeEllipseRects[0];
+	geom.GlGenerate();
 
 	unsigned int texture1 = glGenTexture();
 
@@ -238,10 +253,26 @@ VrRecorder::Run(VrImageFormat vrFormat)
 	rtUv.Init(shaderUv2map, GlRenderTarget::Type::Uv16, recWidth, recHeight);
 
 	int cnt = 0;
-	int cntMod = 100;
+	int cntMod = 10;
 	auto t1 = std::chrono::high_resolution_clock::now();
 
 	Shader* shader = &shaderN;
+
+	if (c.saveDebugFormatImage)
+	{
+		cv::Rect r = vrFormat.GetSubImg(channel);
+		cv::Mat& frame = vrFormat.lastFrameAnalyzed;
+		cv::Mat subFrame = frame(r);
+
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, frame.cols);
+		for (int f = 0; f < 2; f++)
+		{ // 1 frame lag in drawing?
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, r.width, r.height, 0, GL_BGR, GL_UNSIGNED_BYTE, subFrame.data);
+			rt.Draw(texture1, cam, geom);
+		}
+		vrFormat.SaveDebugInputImages(videopath.c_str(), &frame, &rt.renderImg);
+	}
+
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -271,13 +302,14 @@ VrRecorder::Run(VrImageFormat vrFormat)
 
 		curTimeCode = TimeCode(*curframe);
 
-		cv::Mat frame = curframe->Frame;
+		cv::Mat& frame = curframe->Frame;
 		cv::Rect r = vrFormat.GetSubImg(channel);
 		cv::Mat subFrame = frame(r);
 
 		if (!pause)
 		{
-			camTracker.Process(subFrame);
+			if (vrFormat.GeomType != VrImageGeometryMapping::Type::Flat)
+				camTracker.Process(subFrame);
 
 			auto* si = script.GetBefore(curTimeCode.FrameNo + 1);
 			if (si && !si->IsEmpty())
@@ -285,7 +317,6 @@ VrRecorder::Run(VrImageFormat vrFormat)
 
 			if (!si || !si->HasYaw())
 				cam.SetTarget(camTracker.curTarget);
-				//cam.SetTarget(camTracker.curTarget);
 
 			cam.MoveCam(vidIn->SecsPerImage(), vidIn->frameSpeed);
 		}
@@ -303,17 +334,22 @@ VrRecorder::Run(VrImageFormat vrFormat)
 			auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
 			t1 = t2;
 			TimeCodeHMS tt(vidIn->frameCount / vidIn->fps);
-			std::cout << curTimeCode.GetHms().ToString() << " / " << tt.ToString() << "   " << (1000000.0f * cntMod / duration) << " fps       \r";
+			float cfps = (int)(1000000.0f * cntMod / duration +0.5f);
+			float cy = 0.01f * (int)(cam.cps.Yaw() * 100);
+			float cp = 0.01f * (int)(cam.cps.Pitch() * 100);
+			float cf = 0.1f * (int)(cam.cps.Fov() * 10);
+			float cb = 0.1f * (int)(cam.cps.BackOff() * 10);
+			std::cout << curTimeCode.GetHms().ToString() << " / " << tt.ToString() << "  " << cfps << " fps   Fov: " << cf << "  Bo: " << cb << "   Pos: " << cy << " | " << cp << "   \r";
 		}
 
 		processInput(window);
 
-		rt.Draw(texture1, cam, sphere);
+		rt.Draw(texture1, cam, geom);
 		vidOut->Write(rt.renderImg);
 		if (!scriptmode)
 			snapshots->Frame(rt.renderImg, vidIn->SecsPerImage());
 
-		rtUv.Draw(texture1, cam, sphere);
+		rtUv.Draw(texture1, cam, geom);
 
 		shader->use();
 		glViewport(0, 0, scrSize.width, scrSize.height);
@@ -328,7 +364,7 @@ VrRecorder::Run(VrImageFormat vrFormat)
 		glm::mat4 view = cam.CalcView();
 		shader->setMat4("view", view);
 
-		sphere.GlDraw();
+		geom.GlDraw();
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -339,7 +375,7 @@ VrRecorder::Run(VrImageFormat vrFormat)
 
 	snapshots->CreateThumbnails();
 
-	sphere.DeleteVo();
+	geom.DeleteVo();
 	glfwTerminate();
 
 	PostProcess();
@@ -540,7 +576,7 @@ VrRecorder::button_callback(GLFWwindow* window, int button, int action, int mods
 		{
 			float tx = su / (256 * 256.0f);
 			float ty = sv / (256 * 256.0f);
-			auto v = sphere.Tex2Dir(tx , ty);
+			auto v = geom.Tex2Dir(tx , ty);
 			auto yp = cam.CalcYawPitch(v);
 			float yaw = yp.Yaw;
 			float pitch = yp.Pitch;
@@ -554,7 +590,7 @@ VrRecorder::button_callback(GLFWwindow* window, int button, int action, int mods
 			cam.Set(Cp::Pitch, yp.Pitch, scriptmode ? 1 : 7);
 			isScriptYpChanged = true;
 
-			std::cout << yp.Yaw << " , " << yp.Pitch << std::endl;
+			//std::cout << yp.Yaw << " , " << yp.Pitch << std::endl;
 		}
 	}
 }
@@ -583,7 +619,7 @@ VrRecorder::mouse_callback(GLFWwindow* window, double xpos, double ypos)
 		cam.Change(Cp::Pitch, yoffset, scriptmode ? 1 : 7);
 		isScriptYpChanged = true;
 
-		std::cout << "Yaw " << cam.yaw() << "  Pitch " << cam.pitch() << std::endl;
+		// std::cout << "Yaw " << cam.yaw() << "  Pitch " << cam.pitch() << std::endl;
 
 		cam.calcCamera();
 	}

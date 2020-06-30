@@ -33,6 +33,23 @@ inline std::string what(const std::exception_ptr& eptr)
 	catch (...) { return "Unknown exceptiontype"; }
 }
 
+struct MinMax
+{
+public:
+	double Min = 0, Max = 0;
+	int numPoints = 0;
+	double Size() {	return Max - Min; }
+	void Add(double v)
+	{
+		if (numPoints++ == 0)
+			Min = Max = v;
+		else
+		{
+			if (v > Max) Max = v;
+			if (v < Min) Min = v;
+		}
+	}
+};
 
 namespace util
 {

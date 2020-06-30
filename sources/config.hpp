@@ -36,10 +36,8 @@ BackOffMax = 100
 # Max limits on pitch (y) and yaw (x)
 # Negative values are calculated from border, MaxPitch=-40 -> MaxPitch=90-40=50
 # For 360 deg video, MaxYaw=-75 -> MaxYaw = 180-75 = 105
-#MaxPitch = 50
-#MaxYaw = -50
-MaxPitch = 80
-MaxYaw = 80
+MaxPitch = 35
+MaxYaw = -75
 
 # How many seconds to do camera parameter changes over, for smooth pans and zooms
 CrossFadeSecs = 4.0
@@ -75,8 +73,8 @@ TrackYOffAmpUp = 1.0
 TrackYOffAmpDown = 1.0
 
 # Tracking max limits on pitch (y) and yaw (x)
-TrackMaxPitch = 40
-TrackMaxYaw = -60
+TrackMaxPitch = 35
+TrackMaxYaw = -75
 
 
 ############# Snapshots #############
@@ -126,6 +124,7 @@ public:
 	bool saveaudio = false;
 	bool audiokeep = false;
 	bool scriptcam = false;
+	bool saveDebugFormatImage = false;
 
 	std::string outPath = "";
 	std::string outFolder = "";
@@ -133,5 +132,7 @@ public:
 	std::string loadscriptPath = "";
 	std::string savescriptPath = "";
 
+	float timeStartSec = 0;
+	float timeEndSec = 999999;
 };
 

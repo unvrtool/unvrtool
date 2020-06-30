@@ -10,10 +10,9 @@
 #include <glm/glm.hpp>
 #include "vrimageformat.hpp"
 
-class SphereGenerator
+class Geometry
 {
 public:
-
 	struct xyzyv
 	{
 		float x=0, y=0, z=0, u=0, v=0;
@@ -23,13 +22,13 @@ public:
 		float UvDist2(glm::vec2 uv) { return (u - uv.x) * (u - uv.x) + (v - uv.y) * (v - uv.y); }
 	};
 
-
 	VrImageGeometryMapping::Type geomMappingType = VrImageGeometryMapping::Type::Equirectangular;
+	float planeAspectRatio = 1;
 	float FovX = 360;
 	float FovY = 180;
 	int Nx = 256;
 	int Ny = 128;
-	cv::Rect2f sphericalEllipseRect;
+	cv::Rect2f fisheyeEllipseRect;
 	
 	float FovRadX() { return util::rad(FovX); }
 	float FovRadY() { return util::rad(FovY); }
@@ -60,7 +59,7 @@ public:
 	}
 
 
-	~SphereGenerator()
+	~Geometry()
 	{
 		DeleteVo();
 	}
@@ -70,15 +69,10 @@ public:
 		geomMappingType = type;
 		FovX = fovX;
 		FovY = fovY;
+		planeAspectRatio = fovX / fovY;
 		Nx = (int)roundf(FovX / pointsPerDeg);
 		Ny = (int)roundf(FovY / pointsPerDeg);
 	}
-
-	//void Set(float fovX, float fovY = 180, float pointsPerDeg = 1)
-	//{
-	//	Set(VrImageGeometryMapping::Type::Equirectangular, FovX, fovY, pointsPerDeg);
-	//}
-
 
 	glm::vec2 CalcTexFromYawPitch(YawPitch p)
 	{
@@ -86,7 +80,7 @@ public:
 		float tx = 0.5f + p.Yaw / FovX;
 		float ty = 0.5f + p.Pitch / FovY;
 
-		if (geomMappingType == VrImageGeometryMapping::Type::Spherical)
+		if (geomMappingType == VrImageGeometryMapping::Type::Fisheye)
 		{
 			float rx = p.Yaw * pi / 180;
 			float ry = p.Pitch * pi / 180;
@@ -101,11 +95,25 @@ public:
 			float sc = 2 * a / (pi * r);
 			tx = (-px * sc + 1) / 2;
 			ty = (-py * sc + 1) / 2;
-			tx = sphericalEllipseRect.x + tx * sphericalEllipseRect.width;
-			ty = sphericalEllipseRect.y + ty * sphericalEllipseRect.height;
+			tx = fisheyeEllipseRect.x + tx * fisheyeEllipseRect.width;
+			ty = fisheyeEllipseRect.y + ty * fisheyeEllipseRect.height;
 		}
 
 		return glm::vec2(tx, ty);
+	}
+
+	
+	void GeneratePlanePoints()
+	{
+		Ny = Nx = 2;
+		int Pts = Ny * Nx;
+		pts.clear();
+		pts.reserve(Pts);
+		auto x = planeAspectRatio;
+		pts.emplace_back( x,  1.f, 1.f, 0.f, 0.f);
+		pts.emplace_back(-x,  1.f, 1.f, 1.f, 0.f);
+		pts.emplace_back( x, -1.f, 1.f, 0.f, 1.f);
+		pts.emplace_back(-x, -1.f, 1.f, 1.f, 1.f);
 	}
 
 	void GenerateSpherePoints()
@@ -132,7 +140,7 @@ public:
 				float pz = R * glm::cos(rx);
 				float px = -R * glm::sin(rx);
 
-				if (geomMappingType == VrImageGeometryMapping::Type::Spherical)
+				if (geomMappingType == VrImageGeometryMapping::Type::Fisheye)
 				{
 					// r = k sin(a)  Orthographic (orthogonal / Sine-law)
 					// https://en.wikipedia.org/wiki/Fisheye_lens, http://michel.thoby.free.fr/Fisheye_history_short/Projections/Models_of_classical_projections.html
@@ -142,13 +150,21 @@ public:
 					float sc = 2 * a / (pi * r);
 					tx = (-px* sc + 1) / 2;
 					ty = (-py* sc + 1) / 2;
-					// Offset for finding spherical texture in uploaded texture
-					tx = sphericalEllipseRect.x + tx * sphericalEllipseRect.width;
-					ty = sphericalEllipseRect.y + ty * sphericalEllipseRect.height;
+					// Offset for finding fisheye texture in uploaded texture
+					tx = fisheyeEllipseRect.x + tx * fisheyeEllipseRect.width;
+					ty = fisheyeEllipseRect.y + ty * fisheyeEllipseRect.height;
 				}
 
 				pts.emplace_back(px, py, pz, tx, ty);
 			}
+	}
+
+	void GeneratePoints()
+	{
+		if (geomMappingType == VrImageGeometryMapping::Type::Flat)
+			GeneratePlanePoints();
+		else
+			GenerateSpherePoints();
 	}
 
 	glm::vec3 Tex2Dir(float u, float v)
@@ -186,9 +202,9 @@ public:
 		return glm::vec3(x, y, z);
 	}
 
-	void GenerateSphereVerts()
+	void GenerateVerts()
 	{
-		GenerateSpherePoints();
+		GeneratePoints();
 
 		numRects = (Nx - 1) * (Ny - 1);
 		verticesVec.clear();
@@ -208,9 +224,9 @@ public:
 			}
 	}
 
-	void GlGenerateSphere()
+	void GlGenerate()
 	{
-		GenerateSphereVerts();
+		GenerateVerts();
 
 		float* vertices = (float*)verticesVec.data();
 		int sizeof_vertices = numRects * 6 * 5 * sizeof(float);

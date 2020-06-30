@@ -37,3 +37,4 @@ Release
 build/Debug
 build/Release
 build/.vs
+/build/unvrtool.config

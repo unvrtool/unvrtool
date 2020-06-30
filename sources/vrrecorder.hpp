@@ -60,7 +60,7 @@ private:
 	Camera cam;
 	CameraTracker camTracker;
 	GlRenderTarget rt, rtUv;
-	SphereGenerator sphere;
+	Geometry geom;
 	SnapShots* snapshots;
 	Marker markerYpAuto = Marker(Marker::CC::BW, Marker::Shape::Circle, 12, 2, 6);
 	Marker markerYpManual = Marker(Marker::CC::BW, Marker::Shape::Cross, 12, 2, 6);
@@ -74,6 +74,8 @@ private:
 	GLFWwindow* window;
 
 	cv::Mat GetViewUv() { return rtUv.renderImg; }
+
+	bool trgExitScriptCamMode = false;
 
 	bool isScriptYpChanged = false;
 	bool isScriptFbChanged = false;

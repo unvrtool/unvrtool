@@ -22,7 +22,9 @@ namespace util
 		WCHAR wpath[MAX_PATH];
 		GetModuleFileNameW(NULL, wpath, MAX_PATH);
 		return filesystem::path(wpath).parent_path().string() + "\\";
-#else#pragma message ( "warning: GetAppFolderPath() not implemented for this architecure" )			return "";
+#else
+#pragma message ( "warning: GetAppFolderPath() not implemented for this architecure" )
+			return "";
 #endif
 	}
 
@@ -81,7 +83,9 @@ namespace util
 		CloseHandle(pi.hProcess);
 		CloseHandle(pi.hThread);
 		return true;
-#else#pragma message ( "warning: RunProcess() not implemented for this architecure" )		return false;
+#else
+#pragma message ( "warning: RunProcess() not implemented for this architecure" )
+		return false;
 #endif
 	}
 
@@ -128,7 +132,7 @@ namespace util
 		}
 		assert(p == end);
 		char** av = new char* [v.size()];
-		for (int i = 0; i < v.size(); i++)
+		for (int i = 0; i < (int)v.size(); i++)
 			av[i] = v[i];
 
 		*argv = av;

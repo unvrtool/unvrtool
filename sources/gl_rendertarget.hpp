@@ -19,7 +19,7 @@
 
 #include "camera.hpp"
 #include "shader.hpp"
-#include "spheregenerator.hpp"
+#include "geometry.hpp"
 
 
 class GlRenderTarget
@@ -83,7 +83,7 @@ public:
 		renderHeight = height;
 	}
 
-	void Draw(int texture1, Camera& cam, SphereGenerator& sphere)
+	void Draw(int texture1, Camera& cam, Geometry& geom)
 	{
 		glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 		shader->use();
@@ -103,7 +103,7 @@ public:
 		shader->setMat4("projection", projection);
 		glm::mat4 view = cam.CalcView();
 		shader->setMat4("view", view);
-		sphere.GlDraw();
+		geom.GlDraw();
 
 		//std::fstream dumpbuf_fd("c:/git/LearnOpenGL-master/fbodump.rgb", std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
 		//dumpbuf_fd.write((char*)dumpbuf, scrWidth * scrHeight * 3);

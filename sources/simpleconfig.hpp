@@ -117,15 +117,22 @@ public:
 		while (getline(stream, lineOrg))
 		{
 			std::string line(lineOrg);
+
 			line.erase(std::remove_if(line.begin(), line.end(), isspace), line.end());
 			if (line.empty()) Set("", "");
-			if (line[0] == '#') Set(lineOrg, ""); // Keep comments as they were
+			else if (line[0] == '#') Set(lineOrg, ""); // Keep comments as they were
 			else
 			{
 				auto delimiterPos = line.find("=");
-				auto key = line.substr(0, delimiterPos);
-				auto value = line.substr(delimiterPos + 1);
-				Set(key, value);
+				if (delimiterPos == std::string::npos)
+					std::cerr << "!! Warning: No = found in line: " << lineOrg << std::endl;
+				else
+				{
+					// TODO: Should have special handling for quoted strings with whitespace
+					auto key = line.substr(0, delimiterPos);
+					auto value = line.substr(delimiterPos + 1);
+					Set(key, value);
+				}
 			}
 		}
 	}
@@ -171,7 +178,7 @@ public:
 				if (key == "" || key[0] == '#')
 					cFile << key << std::endl;
 				else
-					cFile << key << "\t" << Get(key) << std::endl;
+					cFile << key << " = " << Get(key) << std::endl;
 		}
 	}
 

@@ -30,26 +30,32 @@ public:
 class VrImageGeometryMapping
 {
 protected:
-	cv::Rect2f SphericalTextureAdjust(cv::Size img, cv::Rect sphericalEllipseRect)
+
+
+	cv::Rect2f ToPixelCoords(cv::Size img, cv::Rect2f textureCoords)
 	{
-		cv::Rect s = sphericalEllipseRect;
+		auto s = textureCoords;
+		float sw = img.width;
+		float sh = img.height;
+		cv::Rect2f r(s.x * sw, s.y * sh, s.width * sw, s.height * sh);
+		return r;
+	}
+
+	cv::Rect2f ToTextureCoords(cv::Size img, cv::Rect2f pixelCoords)
+	{
+		cv::Rect s = pixelCoords;
 		float sw = 1.0f / img.width;
 		float sh = 1.0f / img.height;
-		float x = s.x * sw;
-		float y = s.y * sh;
-		float w = s.width * sw;
-		float h = s.height * sh;
-
-		cv::Rect2f r(x, y, w, h);
+		cv::Rect2f r(s.x * sw, s.y * sh, s.width * sw, s.height * sh);
 		return r;
 	}
 
 
 public:
-	inline static float DefaultStereoscopicFovX = 45.0;
-	enum class Type { Unknown = 0, Flat = 1, Equirectangular = 2, Spherical = 3, };
+	inline static float DefaultStereoscopicFovX = 180.0;
+	enum class Type { Unknown = 0, Flat = 1, Equirectangular = 2, Fisheye = 3, };
 	std::vector<cv::Rect> subImageRects;
-	std::vector<cv::Rect2f> sphericalEllipseRects;
+	std::vector<cv::Rect2f> fisheyeEllipseRects;
 
 	VrImageGeometryMapping::Type GeomType = Type::Unknown;
 	float FovX = 0;
@@ -63,7 +69,6 @@ public:
 	bool IsGeomTypeSet() { return GeomType != Type::Unknown; }
 	bool IsFovSet() { return FovX >= 0 && FovY >= 0; }
 	bool IsGeomMappingSet() { return IsGeomTypeSet() && IsFovSet(); }
-
 };
 
 
@@ -72,6 +77,7 @@ class VrImageFormat : public VrImageLayout, public VrImageGeometryMapping
 	bool CheckStereo(cv::Mat img1, cv::Mat img2, bool horizontal);
 
 public:
+	cv::Mat lastFrameAnalyzed;
 	void Detect(int level, std::function<cv::Mat(int, int)> getFrame);
 	void Detect(int level, VideoInput* cap);
 
@@ -84,6 +90,23 @@ public:
 		int x = imageNo % numImgsX;
 		int y = imageNo / numImgsX;
 		return cv::Rect(cv::Point2i(x * sz.width, y * sz.height), sz);
+	}
+
+	void CheckSubImgInit(VideoInput* vidIn)
+	{
+		cv::Size fullsize(vidIn->width, vidIn->height);
+		if (subImageRects.size() == 0)
+		{
+			subImageRects.push_back(GetSubImg(fullsize, 0));
+			subImageRects.push_back(GetSubImg(fullsize, 1));
+		}
+		if (GeomType == Type::Fisheye)
+		{
+			if (fisheyeEllipseRects.size() == 0)
+				Detect(0, vidIn);
+			if (fisheyeEllipseRects.size() == 0)
+				throw std::runtime_error("Unable to detect fisheye params");
+		}
 	}
 
 	cv::Rect GetSubImg(int imageNo = 0)
@@ -110,6 +133,9 @@ public:
 		};
 	}
 
+	void SaveDebugInputImages(const std::string& videopath, cv::Mat* debugframe, cv::Mat* projectedFrame);
+	cv::Mat DrawDebugInputImage(cv::Mat frame);
+
 	std::string GetGeometryString()
 	{
 		switch (GeomType)
@@ -117,7 +143,7 @@ public:
 		case Type::Unknown: return "Unknown";
 		case Type::Flat: return "Flat";
 		case Type::Equirectangular: return "Equirectangular";
-		case Type::Spherical: return "Spherical";
+		case Type::Fisheye: return "Fisheye";
 		default: return "Invalid enum";
 		}
 	}
@@ -146,7 +172,7 @@ public:
 		else throw std::exception("Unknown layout");
 
 		k = s.substr(f1+1, f2-f1-1);
-		if (k == "180")
+		if (k == "180" || k == "")
 			v.Set180();
 		else if (k == "360")
 			v.Set360();
@@ -155,7 +181,12 @@ public:
 		k = s.substr(f2+1);
 		if (k == "er" || k == "equirectangular")
 			v.GeomType = Type::Equirectangular;
+		else if (k == "flat")
+			v.SetStereoscopic();
+		else if (k == "fisheye" || k == "spherical")
+			v.GeomType = Type::Fisheye;
 		else throw std::exception("Unknown projection");
+
 
 		return v;
 	}
