@@ -57,6 +57,8 @@ private:
 	TimeCode curTimeCode;
 	Script script;
 
+	Config::Rgb backgroundColor;
+
 	Camera cam;
 	CameraTracker camTracker;
 	GlRenderTarget rt, rtUv;

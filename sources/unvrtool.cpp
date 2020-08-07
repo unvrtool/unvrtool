@@ -41,7 +41,10 @@ Options:
 -t  | -to <path>             Save video to path, implies -s
 -tf | -tofolder <path>       Save video(s) to folder, implies -s
 -ts | -timestart <time>		 Start video at <time>, given as H:MM:SS 
+-ts% | -timestart% <percent> Start video at <percent> point of video, 0.0 - 100.0
 -te | -timeend <time>		 End video at <time>, given as H:MM:SS 
+-te% | -timeend% <percent>   End video at <percent> point of video, 0.0 - 100.0
+-td | -timeduration <time>   End video at <time> after start-time
 -c  | -config <config>	     Load config-file. If no extension is given .config will be added
 -cr | -configreset           Reset all config values
 -cs | -configset <key>=<val>[;...] Set config values on commandline, as an alternative to -c
@@ -190,7 +193,7 @@ int main(int argc, char** argv)
 			H(c.save = true; c.outPath = argv[++i]);
 		//-tf | -tofolder <path>         Save video(s) to folder, implies -s
 		if (opt == "-tf" || opt == "-tofolder")
-			H(c.save = true; c.outPath = argv[++i]);
+			H(c.save = true; c.outFolder = argv[++i]);
 
 		//-sc | -script				 Allow user to setup camera shots first, esc to stop.
 		if (opt == "-sc" || opt == "-script")
@@ -209,9 +212,20 @@ int main(int argc, char** argv)
 		if (opt == "-ts" || opt == "-timestart")
 			H(c.timeStartSec = TimeCodeHMS(argv[++i]).ToSecs());
 
+		// -ts% | -timestart% <percent> Start video at <percent> point of video, 0.0 - 100.0
+		if (opt == "-ts%" || opt == "-timestart%")
+			H(c.timeStartPrc = stof(argv[++i]));
+
 		//-te | -timeend <time>		 End video at <time>, given as H:MM:SS 
-		if (opt == "-te" || opt == "-timestart")
+		if (opt == "-te" || opt == "-timeend")
 			H(c.timeEndSec = TimeCodeHMS(argv[++i]).ToSecs());
+
+		if (opt == "-te%" || opt == "-timeend%")
+			H(c.timeEndPrc = stof(argv[++i]));
+
+		// -td | -timeduration <time>   End video at <time> after start - time
+		if (opt == "-td" || opt == "-timeduration")
+			H(c.timeDurationSec = TimeCodeHMS(argv[++i]).ToSecs());
 
 		//-if | -inputformat <format>  Specify video format or auto (default). Ex: lr:180:fisheye or tb:360:equirectangular
 		if (opt == "-if" || opt == "-inputformat")

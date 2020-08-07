@@ -88,6 +88,8 @@ VrRecorder::StartScriptMode()
 	vidIn->SetNextFrame(c.timeStartSec * vidIn->fps);
 	vidIn->SetEndFrame(c.timeEndSec * vidIn->fps);
 
+	backgroundColor = c.GetScriptBackgroundColor();
+
 	scriptmode = true;
 	showMarkers = true;
 	pause = true;
@@ -120,12 +122,33 @@ VrRecorder::ExitScriptCamMode()
 void
 VrRecorder::StartNormalMode()
 {
+	backgroundColor = c.GetBackgroundColor();
+
 	vidIn->SetNextFrame(c.timeStartSec * vidIn->fps);
 	vidIn->SetEndFrame(c.timeEndSec * vidIn->fps);
 	scriptmode = false;
+	snapshots->snapshotsPath = videopath + ".unvr";
+	if (c.outFolder != "")
+	{
+		std::filesystem::path p(videopath);
+		auto fn = p.filename();
+		p = std::filesystem::path(c.outFolder);
+		snapshots->snapshotsPath = (p / fn).string() + ".unvr";
+	}
+
 	if (c.save)
 	{
 		std::string opath = videopath + ".unvr.vid.mp4";
+		if (c.outPath != "")
+			opath = c.outPath;
+		if (c.outFolder != "")
+		{
+			std::filesystem::path p(videopath);
+			auto fn = p.filename();
+			p = std::filesystem::path(c.outFolder);
+			opath = (p / fn).string() + ".unvr.vid.mp4";
+		}
+
 		vidOut->Start(c, opath, vidIn->fps, cv::Size(recWidth, recHeight));
 	}
 }
@@ -187,6 +210,15 @@ VrRecorder::Run(VrImageFormat vrFormat)
 	if (!vidIn->Open(videopath))
 		return -1;
 
+	if (c.timeStartPrc >= 0)
+		c.timeStartSec = c.timeStartPrc / 100 * vidIn->frameCount / vidIn->fps;
+
+	if (c.timeEndPrc >= 0)
+		c.timeEndSec = c.timeEndPrc / 100 * vidIn->frameCount / vidIn->fps;
+
+	if (c.timeDurationSec > 0)
+		c.timeEndSec = c.timeStartSec + c.timeDurationSec;
+
 	std::cout << videopath << std::endl;
 	std::cout << c.Print(0) << std::endl;
 
@@ -220,7 +252,6 @@ VrRecorder::Run(VrImageFormat vrFormat)
 	cam.Init(c, vidIn->fps);
 	cam.UpdateCps();
 	camTracker.Init(c, vidIn->fps);
-	snapshots->snapshotsPath = videopath;
 
 	if (vrFormat.GeomType == VrImageFormat::Type::Flat)
 	{
@@ -249,8 +280,10 @@ VrRecorder::Run(VrImageFormat vrFormat)
 	shaderN2map.use();
 	shaderN2map.setInt("texture1", 0);
 
+
 	rt.Init(shaderN2map, GlRenderTarget::Type::RGB8, recWidth, recHeight);
 	rtUv.Init(shaderUv2map, GlRenderTarget::Type::Uv16, recWidth, recHeight);
+	rt.backColor = c.GetBackgroundColor();
 
 	int cnt = 0;
 	int cntMod = 10;
@@ -353,7 +386,7 @@ VrRecorder::Run(VrImageFormat vrFormat)
 
 		shader->use();
 		glViewport(0, 0, scrSize.width, scrSize.height);
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+		glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		glActiveTexture(GL_TEXTURE0);
@@ -391,11 +424,34 @@ VrRecorder::PostProcess()
 		std::string vpath = videopath + ".unvr.vid.mp4";
 		std::string opath = videopath + ".unvr.mp4";
 
+		if (c.outPath != "")
+		{
+			vpath = c.outPath + ".vid.mp4";
+			opath = c.outPath;
+			std::filesystem::rename(opath, vpath);
+		}
+		if (c.outFolder != "")
+		{
+			std::filesystem::path p(videopath);
+			auto fn = p.filename();
+			p = std::filesystem::path(c.outFolder);
+			auto spath = (p / fn).string();
+			vpath = spath + ".unvr.vid.mp4";
+			opath = spath + ".unvr.mp4";
+		}
+
+
 		if (std::filesystem::exists(vpath))
 		{
 			std::ostringstream os;
 			//os << " -vn -i \"" << videopath << "\" -i \"" << vpath << "\" -shortest -c copy -y \"" << opath << "\"";
-			os << " -i \"" << vpath << "\" -vn -i \"" << videopath << "\" -shortest -c copy -y \"" << opath << "\"";
+			std::string ss = "";
+			if (c.timeStartSec > 0)
+			{
+				TimeCodeHMS tms(c.timeStartSec);
+				ss = " -ss " + tms.ToString();
+			}
+			os << " -i \"" << vpath << "\"" <<  ss << " -vn -i \"" << videopath << "\" -shortest -c copy -y \"" << opath << "\"";
 			std::string args = os.str();
 			bool ok = util::RunProcess(ffmpegPath, args);
 			if (ok)

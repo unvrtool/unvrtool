@@ -33,6 +33,7 @@ public:
 	cv::Mat renderImg;
 	Shader* shader;
 	unsigned int framebuffer;
+	Config::Rgb backColor;
 
 	void Init(Shader& s, Type rendertype, int width, int height)
 	{
@@ -90,7 +91,7 @@ public:
 		glViewport(0, 0, renderWidth, renderHeight);
 
 		if (type == Type::RGB8)
-			glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+			glClearColor(backColor.r, backColor.g, backColor.b, 1.0f);
 		if (type == Type::Uv16)
 			glClearColor(0, 0, 0, 1);
 

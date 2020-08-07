@@ -25,8 +25,7 @@ Height = 1080
 # FOV: Usually 45 - 70. 45 gives nice projection, but might clip to much. 65 will captures more, but gives more widelense effect
 Fov = 65.0
 FovMin = 1.0
-#FovMax = 89.0
-FovMax = 130.0
+FovMax = 89.0
 
 # BackOff: Usually 0 - 70. 0 will give the most convincing projection, but might require a higher Fov to compensate. BackOff around 20-50 will allow lower Fov while capturing a bigger area
 BackOff = 50.0
@@ -44,6 +43,12 @@ CrossFadeSecs = 4.0
 
 #How many additional times autodetect needs to verify
 AutodetectConfirmations = 1
+
+#Color where no image exists - R,G,B values 0-255
+#BackgroundColor = 50,77,77
+BackgroundColor = 0,0,0
+#ScriptBackgroundColor is only used in script mode to help see outside-image areas 
+ScriptBackgroundColor = 155,57,57;
 
 # Path to ffmpeg
 ffmpegPath = ffmpeg.exe
@@ -73,8 +78,8 @@ TrackYOffAmpUp = 1.0
 TrackYOffAmpDown = 1.0
 
 # Tracking max limits on pitch (y) and yaw (x)
-TrackMaxPitch = 35
-TrackMaxYaw = -75
+TrackMaxPitch = 25
+TrackMaxYaw = -80
 
 
 ############# Snapshots #############
@@ -116,6 +121,34 @@ public:
 
 #undef AccINT
 
+	struct Rgb { float r, g, b;
+		Rgb() { r = g = b = 0; }
+		Rgb(std::string s)
+		{
+			size_t d1 = s.find(',');
+			size_t d2 = s.find(',', d1 + 1);
+			auto v = s.substr(0, d1);
+			r = std::stoi(v) / 255.0f;
+			v = s.substr(d1 + 1, d2);
+			g = std::stoi(v) / 255.0f;
+			v = s.substr(d2 + 1);
+			b = std::stoi(v) / 255.0f;
+		}
+	
+	};
+
+	Rgb GetBackgroundColor()
+	{
+		std::string s = GetString("BackgroundColor", "0,0,0");
+		return Rgb(s);
+	}
+
+	Rgb GetScriptBackgroundColor()
+	{
+		std::string s = GetString("ScriptBackgroundColor", "0,0,0");
+		return Rgb(s);
+	}
+
 	VrImageFormat vrFormat;
 
 	// Commandline options
@@ -132,7 +165,11 @@ public:
 	std::string loadscriptPath = "";
 	std::string savescriptPath = "";
 
+	float timeStartPrc = -1;
 	float timeStartSec = 0;
+	float timeEndPrc = -1;
 	float timeEndSec = 999999;
+	float timeDurationSec = 0;
+
 };
 

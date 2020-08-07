@@ -35,7 +35,7 @@ public:
 
 	void Frame(cv::Mat& img, float secs)
 	{
-		if (thumbnailsImageWidth <= 0 || thumbnailsSheetWidth <= 0)
+		if (thumbnailsImageWidth <= 0 && thumbnailsSheetWidth <= 0)
 			return;
 
 		secsDone += secs;
