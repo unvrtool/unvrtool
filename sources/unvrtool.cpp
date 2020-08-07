@@ -95,6 +95,8 @@ Mouse scroll-wheel: zoom fov/bo. Ctrl: fov only. Shift/Alt: bo only. Both: zoom 
 
 int main(int argc, char** argv)
 {
+	std::cout << "Unvrtool ver 1.0.1" << std::endl;
+
  	util::CheckOpenCvDlls();
 	std::filesystem::path appPath(argv[0]);
 	string appName = appPath.filename().replace_extension().string();
